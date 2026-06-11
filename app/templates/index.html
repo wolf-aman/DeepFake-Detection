@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speaker Verification & Deepfake Detection</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Speaker Verification & Deepfake Detection</h1>
+            <p class="subtitle">Secure voice authentication and audio integrity verification</p>
+            <nav>
+                <a href="/">Main Demo</a>
+                <a href="/kyc">Voice KYC</a>
+            </nav>
+        </header>
+
+        <main>
+            <section class="card">
+                <h2>Speaker Enrollment</h2>
+                <p class="description">Register a new speaker with multiple audio samples for better accuracy</p>
+                <form id="enrollForm">
+                    <div class="form-group">
+                        <label for="enrollName">Speaker Name</label>
+                        <input type="text" id="enrollName" name="name" required placeholder="e.g., john_doe">
+                    </div>
+                    <div class="form-group">
+                        <label for="enrollFiles">Audio Files (3-5 recommended)</label>
+                        <input type="file" id="enrollFiles" name="files" multiple accept="audio/*" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <span class="btn-text">Enroll Speaker</span>
+                        <span class="loader" style="display: none;"></span>
+                    </button>
+                </form>
+                <div id="enrollMessage" class="message"></div>
+            </section>
+
+            <section class="card">
+                <h2>Enrolled Speakers</h2>
+                <div class="toolbar">
+                    <button id="refreshBtn" class="btn btn-secondary">Refresh List</button>
+                </div>
+                <div id="speakersTable">
+                    <p class="loading">Loading speakers...</p>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Speaker Verification</h2>
+                <p class="description">Verify if an audio sample matches an enrolled speaker</p>
+                <form id="verifyForm">
+                    <div class="form-group">
+                        <label for="verifySpeaker">Select Speaker</label>
+                        <select id="verifySpeaker" name="name" required>
+                            <option value="">-- Select a speaker --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="verifyFile">Audio File</label>
+                        <input type="file" id="verifyFile" name="file" accept="audio/*" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <span class="btn-text">Verify Speaker</span>
+                        <span class="loader" style="display: none;"></span>
+                    </button>
+                </form>
+                <div id="verifyResult" class="result"></div>
+            </section>
+
+            <section class="card">
+                <h2>Deepfake Detection</h2>
+                <p class="description">Analyze audio to detect if it's real or synthesized/manipulated</p>
+                <form id="deepfakeForm">
+                    <div class="form-group">
+                        <label for="deepfakeFile">Audio File</label>
+                        <input type="file" id="deepfakeFile" name="file" accept="audio/*" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <span class="btn-text">Detect Deepfake</span>
+                        <span class="loader" style="display: none;"></span>
+                    </button>
+                </form>
+                <div id="deepfakeResult" class="result"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
