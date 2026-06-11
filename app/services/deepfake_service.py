@@ -1,97 +1,94 @@
+import numpy as np
 import torch
 from typing import Dict
+import sys
+import types
 import app.config as config
 from app.services.audio_utils import preprocess_audio
 
+_processor = None
+_model = None
 
-_deepfake_model = None
 
-
-def get_deepfake_model():
-    """Load and cache the deepfake detection model (singleton pattern)."""
-    global _deepfake_model
-    if _deepfake_model is None:
-        # Lazy import to avoid import chain issues
-        from transformers import pipeline
-        _deepfake_model = pipeline(
-            "audio-classification",
-            model=config.DEEPFAKE_MODEL_ID,
-            device=0 if torch.cuda.is_available() else -1
-        )
-    return _deepfake_model
+def _load_model():
+    global _processor, _model
+    if _model is None:
+        try:
+            # Block ALL problematic SpeechBrain lazy import modules
+            problematic_modules = [
+                'speechbrain.integrations.k2_fsa',
+                'speechbrain.integrations.nlp',
+                'speechbrain.integrations.huggingface.wordemb',
+                'speechbrain.k2_integration',
+                'speechbrain.wordemb',
+            ]
+            
+            for mod_name in problematic_modules:
+                if mod_name not in sys.modules:
+                    sys.modules[mod_name] = types.ModuleType(mod_name)
+            
+            from transformers import AutoProcessor, AutoModelForAudioClassification
+            
+            print(f"Loading deepfake model: {config.DEEPFAKE_MODEL_ID}")
+            
+            _processor = AutoProcessor.from_pretrained(config.DEEPFAKE_MODEL_ID)
+            _model = AutoModelForAudioClassification.from_pretrained(config.DEEPFAKE_MODEL_ID)
+            _model.eval()
+            
+            print("Deepfake model loaded successfully")
+        except Exception as e:
+            import traceback
+            print("ERROR loading deepfake model:")
+            traceback.print_exc()
+            raise
 
 
 def detect_deepfake(audio_path: str) -> Dict:
-    """
-    Detect if audio is real or fake (deepfake/synthesized).
-    
-    Args:
-        audio_path: Path to audio file
-        
-    Returns:
-        Dictionary with label, confidence, and explanation
-    """
-    model = get_deepfake_model()
-    
-    waveform, sample_rate = preprocess_audio(audio_path)
-    
-    audio_array = waveform.squeeze().numpy()
-    
-    results = model(audio_array, sampling_rate=sample_rate)
-    
-    top_result = max(results, key=lambda x: x['score'])
-    
-    label = map_label(top_result['label'])
-    confidence = float(top_result['score'])
-    explanation = generate_explanation(label, confidence)
-    
+    _load_model()
+
+    waveform, _ = preprocess_audio(audio_path)
+    audio_array = waveform.squeeze().numpy().astype(np.float32)
+
+    # Wav2Vec2 needs at least 1 second of audio
+    min_samples = config.SAMPLE_RATE
+    if len(audio_array) < min_samples:
+        audio_array = np.pad(audio_array, (0, min_samples - len(audio_array)))
+
+    inputs = _processor(
+        audio_array,
+        sampling_rate=config.SAMPLE_RATE,
+        return_tensors="pt",
+        padding=True,
+    )
+
+    with torch.no_grad():
+        logits = _model(**inputs).logits
+
+    probs = torch.softmax(logits, dim=-1).squeeze().numpy()
+    predicted_id = int(np.argmax(probs))
+    raw_label = _model.config.id2label[predicted_id]
+    confidence = float(probs[predicted_id])
+
+    label = _normalize_label(raw_label)
     return {
         "label": label,
         "confidence": confidence,
-        "explanation": explanation
+        "explanation": _build_explanation(label, confidence),
     }
 
 
-def map_label(raw_label: str) -> str:
-    """
-    Map model output label to standardized Real/Fake format.
-    
-    Args:
-        raw_label: Raw label from model
-        
-    Returns:
-        "Real" or "Fake"
-    """
-    raw_label_lower = raw_label.lower()
-    
-    if any(keyword in raw_label_lower for keyword in ['fake', 'spoof', 'synth', 'generated', 'bonafide']):
-        if 'bonafide' in raw_label_lower:
-            return "Real"
-        return "Fake"
-    elif any(keyword in raw_label_lower for keyword in ['real', 'genuine', 'authentic', 'human']):
-        return "Real"
-    
-    return "Real" if raw_label_lower == "label_0" else "Fake"
+def _normalize_label(raw: str) -> str:
+    # Map model-specific labels to standard Real/Fake regardless of model variant
+    keywords = ["fake", "spoof", "synthesized", "generated", "converted"]
+    return "Fake" if any(k in raw.lower() for k in keywords) else "Real"
 
 
-def generate_explanation(label: str, confidence: float) -> str:
-    """
-    Generate human-readable explanation based on detection result.
-    
-    Args:
-        label: Detection label (Real/Fake)
-        confidence: Confidence score (0-1)
-        
-    Returns:
-        Explanation string
-    """
+def _build_explanation(label: str, confidence: float) -> str:
     if label == "Real":
         if confidence >= 0.8:
-            return "Audio shows strong characteristics of genuine human speech."
-        else:
-            return "Audio appears human but confidence is limited."
+            return "Audio appears to be natural human speech with no detected synthesis artifacts."
+        return "Audio likely genuine but confidence is moderate. Consider re-recording in a quieter environment."
     else:
         if confidence >= 0.8:
-            return "Audio shows strong indicators of synthesis or voice conversion."
-        else:
-            return "Possible manipulation detected. Manual review recommended."
+            return "Audio shows strong patterns inconsistent with natural speech, likely synthesized or voice-converted."
+        return "Possible manipulation detected with low confidence. Manual review recommended."

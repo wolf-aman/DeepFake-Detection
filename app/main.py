@@ -7,9 +7,8 @@ from typing import List
 from pathlib import Path
 import app.config as config
 from app.services.audio_utils import save_temp_audio, cleanup_temp_file
-from app.services.speaker_service import enroll_speaker, verify_speaker, delete_speaker
+from app.services.speaker_service import enroll_speaker, verify_speaker, delete_speaker, get_all_speakers
 from app.services.deepfake_service import detect_deepfake
-from app.storage.db import list_speakers
 
 app = FastAPI(title="Speaker Verification & Deepfake Detection")
 
@@ -20,20 +19,18 @@ app.mount("/static", StaticFiles(directory=str(config.BASE_DIR / "static")), nam
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """Main demo interface."""
-    return templates.TemplateResponse(request, "index.html", {})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
 @app.get("/kyc", response_class=HTMLResponse)
 async def kyc(request: Request):
     """Voice KYC workflow interface."""
-    return templates.TemplateResponse(request, "kyc.html", {})
+    return templates.TemplateResponse(request=request, name="kyc.html")
 
 
 @app.post("/enroll")
 async def enroll_endpoint(name: str = Form(...), files: List[UploadFile] = File(...)):
-    """
-    Enroll a new speaker with one or more audio samples.
-    """
+    """Enroll a new speaker with one or more audio samples."""
     if not files:
         raise HTTPException(status_code=400, detail="At least one audio file is required")
     
@@ -58,9 +55,7 @@ async def enroll_endpoint(name: str = Form(...), files: List[UploadFile] = File(
 
 @app.post("/verify")
 async def verify_endpoint(name: str = Form(...), file: UploadFile = File(...)):
-    """
-    Verify if the uploaded audio matches the enrolled speaker.
-    """
+    """Verify if the uploaded audio matches the enrolled speaker."""
     temp_file = None
     try:
         file_bytes = await file.read()
@@ -82,11 +77,9 @@ async def verify_endpoint(name: str = Form(...), file: UploadFile = File(...)):
 
 @app.get("/speakers")
 async def get_speakers():
-    """
-    List all enrolled speakers.
-    """
+    """List all enrolled speakers."""
     try:
-        speakers = list_speakers()
+        speakers = get_all_speakers()
         return JSONResponse(content=speakers)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list speakers: {str(e)}")
@@ -94,9 +87,7 @@ async def get_speakers():
 
 @app.delete("/speakers/{name}")
 async def delete_speaker_endpoint(name: str):
-    """
-    Delete an enrolled speaker and their embedding.
-    """
+    """Delete an enrolled speaker and their embedding."""
     try:
         result = delete_speaker(name)
         return JSONResponse(content=result)
@@ -108,9 +99,7 @@ async def delete_speaker_endpoint(name: str):
 
 @app.post("/detect-deepfake")
 async def detect_deepfake_endpoint(file: UploadFile = File(...)):
-    """
-    Detect if the uploaded audio is real or deepfake/synthesized.
-    """
+    """Detect if the uploaded audio is real or deepfake/synthesized."""
     temp_file = None
     try:
         file_bytes = await file.read()
@@ -120,6 +109,9 @@ async def detect_deepfake_endpoint(file: UploadFile = File(...)):
         return JSONResponse(content=result)
     
     except Exception as e:
+        import traceback
+        print("ERROR in deepfake detection endpoint:")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Deepfake detection failed: {str(e)}")
     finally:
         if temp_file:

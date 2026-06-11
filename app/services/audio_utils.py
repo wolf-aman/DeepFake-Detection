@@ -1,66 +1,44 @@
 import tempfile
 import torchaudio
 import torch
+import soundfile as sf
 from pathlib import Path
 from typing import Tuple
 import app.config as config
 
 
 def preprocess_audio(audio_path: str) -> Tuple[torch.Tensor, int]:
-    """
-    Preprocess audio file: load, convert to mono, resample to target sample rate, and normalize.
-    
-    Args:
-        audio_path: Path to the audio file
-        
-    Returns:
-        Tuple of (audio_tensor, sample_rate)
-        
-    Raises:
-        RuntimeError: If audio file cannot be loaded
-    """
-    waveform, sample_rate = torchaudio.load(audio_path)
-    
+    try:
+        waveform, sample_rate = torchaudio.load(audio_path)
+    except Exception:
+        data, sample_rate = sf.read(audio_path)
+        waveform = torch.FloatTensor(data).unsqueeze(0) if data.ndim == 1 else torch.FloatTensor(data.T)
+
+    # Convert to mono
     if waveform.shape[0] > 1:
-        waveform = torch.mean(waveform, dim=0, keepdim=True)
-    
+        waveform = waveform.mean(dim=0, keepdim=True)
+
+    # Resample to target rate
     if sample_rate != config.SAMPLE_RATE:
-        resampler = torchaudio.transforms.Resample(
-            orig_freq=sample_rate,
-            new_freq=config.SAMPLE_RATE
-        )
-        waveform = resampler(waveform)
-    
-    waveform = waveform / (torch.max(torch.abs(waveform)) + 1e-8)
-    
+        waveform = torchaudio.transforms.Resample(sample_rate, config.SAMPLE_RATE)(waveform)
+
+    # Normalize amplitude; skip if silent to avoid NaN
+    peak = torch.max(torch.abs(waveform))
+    if peak > 1e-8:
+        waveform = waveform / peak
+
     return waveform, config.SAMPLE_RATE
 
 
 def save_temp_audio(file_bytes: bytes, suffix: str = ".wav") -> str:
-    """
-    Save uploaded file bytes to a temporary file.
-    
-    Args:
-        file_bytes: Audio file bytes
-        suffix: File extension
-        
-    Returns:
-        Path to temporary file
-    """
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-    temp_file.write(file_bytes)
-    temp_file.close()
-    return temp_file.name
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    tmp.write(file_bytes)
+    tmp.close()
+    return tmp.name
 
 
-def cleanup_temp_file(file_path: str):
-    """
-    Delete temporary file safely.
-    
-    Args:
-        file_path: Path to temporary file
-    """
+def cleanup_temp_file(path: str) -> None:
     try:
-        Path(file_path).unlink(missing_ok=True)
+        Path(path).unlink(missing_ok=True)
     except Exception:
         pass
