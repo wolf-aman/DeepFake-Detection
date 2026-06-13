@@ -1,5 +1,11 @@
 # Speaker Verification & Audio Deepfake Detection Demo
 
+<<<<<<< HEAD
+=======
+A FastAPI-based web demo for speaker enrollment, speaker verification, audio deepfake/spoof detection.
+---
+
+>>>>>>> 4eb8642 (modified README)
 ## 1. Features
 
 - **Speaker enrollment** using one or more audio samples.
@@ -385,4 +391,8 @@ This is useful because raw softmax confidence from transformer classifiers is no
 }
 ```
 
+<<<<<<< HEAD
 ---
+=======
+---
+>>>>>>> 4eb8642 (modified README)
