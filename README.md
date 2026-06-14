@@ -1,6 +1,6 @@
 # Speaker Verification & Audio Deepfake Detection Demo
 
-A local FastAPI web demo for **speaker enrollment**, **speaker verification**, and **audio deepfake / spoof detection** using pretrained models. The project also includes a bonus **Voice KYC** workflow, hidden from the frontend by default and easy to enable when required.
+A local FastAPI web demo for **speaker enrollment**, **speaker verification**, and **audio deepfake / spoof detection** using pretrained models.
 
 ---
 
