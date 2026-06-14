@@ -235,15 +235,6 @@ curl -X POST http://127.0.0.1:8000/detect-deepfake \
 6. The highest-scoring class is mapped to the standard demo labels: `Real` or `Fake`.
 7. The API returns label, confidence, raw model label, and explanation.
 
-### 8.4 Bonus Voice KYC workflow
-
-The KYC workflow combines both APIs into a practical onboarding demo:
-
-1. Enroll the user's voice.
-2. Verify a fresh voice sample against the enrolled profile.
-3. Run a deepfake / liveness-style authenticity check.
-4. Approve only when the speaker is verified and the audio is classified as real.
-
 Final decision logic:
 
 ```text
