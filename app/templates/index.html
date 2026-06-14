@@ -11,47 +11,48 @@
         <header>
             <h1>Speaker Verification & Deepfake Detection</h1>
             <p class="subtitle">Secure voice authentication and audio integrity verification</p>
-            <nav aria-label="Primary navigation">
+            <nav>
                 <a href="/" class="active">Main Demo</a>
+                {% if enable_kyc_demo %}
                 <a href="/kyc">Voice KYC</a>
+                {% endif %}
             </nav>
         </header>
 
         <main>
-            <section class="card" aria-labelledby="enroll-heading">
-                <h2 id="enroll-heading">Speaker Enrollment</h2>
-                <p class="description">Register a new speaker with multiple clean audio samples for better accuracy.</p>
+            <section class="card">
+                <h2>Speaker Enrollment</h2>
+                <p class="description">Register a new speaker with multiple audio samples for better accuracy</p>
                 <form id="enrollForm">
                     <div class="form-group">
                         <label for="enrollName">Speaker Name</label>
-                        <input type="text" id="enrollName" name="name" required maxlength="80" placeholder="e.g., John Doe">
+                        <input type="text" id="enrollName" name="name" required placeholder="e.g., john_doe">
                     </div>
                     <div class="form-group">
-                        <label for="enrollFiles">Audio Files</label>
+                        <label for="enrollFiles">Audio Files (3-5 recommended)</label>
                         <input type="file" id="enrollFiles" name="files" multiple accept="audio/*" required>
-                        <small>3–5 samples are recommended. Supported: WAV, MP3, FLAC, M4A, OGG, WebM.</small>
                     </div>
                     <button type="submit" class="btn btn-primary">
                         <span class="btn-text">Enroll Speaker</span>
-                        <span class="loader" hidden></span>
+                        <span class="loader" style="display: none;"></span>
                     </button>
                 </form>
-                <div id="enrollMessage" class="message" role="status" aria-live="polite"></div>
+                <div id="enrollMessage" class="message"></div>
             </section>
 
-            <section class="card" aria-labelledby="speakers-heading">
-                <h2 id="speakers-heading">Enrolled Speakers</h2>
+            <section class="card">
+                <h2>Enrolled Speakers</h2>
                 <div class="toolbar">
-                    <button id="refreshBtn" class="btn btn-secondary" type="button">Refresh List</button>
+                    <button id="refreshBtn" class="btn btn-secondary">Refresh List</button>
                 </div>
                 <div id="speakersTable">
                     <p class="loading">Loading speakers...</p>
                 </div>
             </section>
 
-            <section class="card" aria-labelledby="verify-heading">
-                <h2 id="verify-heading">Speaker Verification</h2>
-                <p class="description">Verify whether an audio sample matches an enrolled speaker.</p>
+            <section class="card">
+                <h2>Speaker Verification</h2>
+                <p class="description">Verify if an audio sample matches an enrolled speaker</p>
                 <form id="verifyForm">
                     <div class="form-group">
                         <label for="verifySpeaker">Select Speaker</label>
@@ -65,15 +66,15 @@
                     </div>
                     <button type="submit" class="btn btn-primary">
                         <span class="btn-text">Verify Speaker</span>
-                        <span class="loader" hidden></span>
+                        <span class="loader" style="display: none;"></span>
                     </button>
                 </form>
-                <div id="verifyResult" class="result" aria-live="polite"></div>
+                <div id="verifyResult" class="result"></div>
             </section>
 
-            <section class="card" aria-labelledby="deepfake-heading">
-                <h2 id="deepfake-heading">Deepfake Detection</h2>
-                <p class="description">Analyze whether an audio file is likely real or synthesized/manipulated.</p>
+            <section class="card">
+                <h2>Deepfake Detection</h2>
+                <p class="description">Analyze audio to detect if it's real or synthesized/manipulated</p>
                 <form id="deepfakeForm">
                     <div class="form-group">
                         <label for="deepfakeFile">Audio File</label>
@@ -81,10 +82,10 @@
                     </div>
                     <button type="submit" class="btn btn-primary">
                         <span class="btn-text">Detect Deepfake</span>
-                        <span class="loader" hidden></span>
+                        <span class="loader" style="display: none;"></span>
                     </button>
                 </form>
-                <div id="deepfakeResult" class="result" aria-live="polite"></div>
+                <div id="deepfakeResult" class="result"></div>
             </section>
         </main>
     </div>
