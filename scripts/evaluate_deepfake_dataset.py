@@ -1,30 +1,36 @@
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT))
-
 import argparse
 import csv
 import json
+import sys
+from pathlib import Path
 from typing import Iterable
 
-from app.services.deepfake import detect_deepfake
+# Make sure imports work when this script is run from scripts/
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+# The uploaded project uses app/services/deepfake_service.py.
+# Keep a fallback in case your local refactor renamed it to app/services/deepfake.py.
+try:
+    from app.services.deepfake_service import detect_deepfake
+except ModuleNotFoundError:
+    from app.services.deepfake import detect_deepfake
 
 
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aac"}
 
 
-def iter_audio_files(folder: Path, limit: int | None = None) -> Iterable[Path]:
-    files = [
-        path
-        for path in folder.rglob("*")
-        if path.is_file() and path.suffix.lower() in AUDIO_EXTENSIONS
-    ]
-
-    files = sorted(files)
+def iter_audio_files(path: Path, limit: int | None = None) -> Iterable[Path]:
+    """Return audio files from either a directory or a single audio file path."""
+    if path.is_file():
+        files = [path] if path.suffix.lower() in AUDIO_EXTENSIONS else []
+    else:
+        files = sorted(
+            p for p in path.rglob("*")
+            if p.is_file() and p.suffix.lower() in AUDIO_EXTENSIONS
+        )
 
     if limit is not None:
         files = files[:limit]
@@ -32,17 +38,8 @@ def iter_audio_files(folder: Path, limit: int | None = None) -> Iterable[Path]:
     return files
 
 
-def expected_label_from_folder(folder_label: str) -> str:
-    folder_label = folder_label.lower().strip()
-    if folder_label == "real":
-        return "Real"
-    if folder_label == "fake":
-        return "Fake"
-    raise ValueError(f"Unsupported label: {folder_label}")
-
-
 def evaluate_file(path: Path, expected_label: str) -> dict:
-    result = detect_deepfake(path)
+    result = detect_deepfake(str(path))
 
     predicted_label = result.get("label", "Unknown")
     is_correct = predicted_label.lower() == expected_label.lower()
@@ -98,39 +95,33 @@ def print_summary(rows: list[dict]) -> None:
     print(f"Fake files tested: {len(fake_rows)}")
     print(f"Fake correctly detected: {fake_correct}/{len(fake_rows)} = {(fake_correct / len(fake_rows) * 100) if fake_rows else 0:.2f}%")
 
-    print("\n--- Error counts ---")
-    print(f"Fake predicted as Real: {len(false_real)}")
-    print(f"Real predicted as Fake: {len(false_fake)}")
+    # print("\n--- Error counts ---")
+    # print(f"Fake predicted as Real: {len(false_real)}")
+    # print(f"Real predicted as Fake: {len(false_fake)}")
 
-    print("\nTop 5 FAKE files wrongly predicted as Real:")
-    for row in false_real[:5]:
-        print(
-            f"- {row['file']} | fake_prob={row['fake_probability']} | "
-            f"max_fake={row['max_fake_probability']} | fake_chunks={row['fake_chunk_count']}/{row['chunk_count']}"
-        )
+    # print("\nTop 5 FAKE files wrongly predicted as Real:")
+    # for row in false_real[:5]:
+    #     print(f"- {row['file']} | confidence={row['confidence']} | raw={row['raw_json']}")
 
-    print("\nTop 5 REAL files wrongly predicted as Fake:")
-    for row in false_fake[:5]:
-        print(
-            f"- {row['file']} | fake_prob={row['fake_probability']} | "
-            f"max_fake={row['max_fake_probability']} | fake_chunks={row['fake_chunk_count']}/{row['chunk_count']}"
-        )
+    # print("\nTop 5 REAL files wrongly predicted as Fake:")
+    # for row in false_fake[:5]:
+    #     print(f"- {row['file']} | confidence={row['confidence']} | raw={row['raw_json']}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--real-dir", required=True, type=Path)
-    parser.add_argument("--fake-dir", required=True, type=Path)
+    parser.add_argument("--real-dir", required=True, type=Path, help="Folder containing real audio, or one real audio file")
+    parser.add_argument("--fake-dir", required=True, type=Path, help="Folder containing fake audio, or one fake audio file")
     parser.add_argument("--output", default="deepfake_evaluation.csv", type=Path)
     parser.add_argument("--limit-per-class", type=int, default=None)
 
     args = parser.parse_args()
 
     if not args.real_dir.exists():
-        raise FileNotFoundError(f"Real directory not found: {args.real_dir}")
+        raise FileNotFoundError(f"Real path not found: {args.real_dir}")
 
     if not args.fake_dir.exists():
-        raise FileNotFoundError(f"Fake directory not found: {args.fake_dir}")
+        raise FileNotFoundError(f"Fake path not found: {args.fake_dir}")
 
     rows: list[dict] = []
 
@@ -139,9 +130,9 @@ def main() -> None:
         ("Fake", args.fake_dir),
     ]
 
-    for expected_label, folder in test_sets:
-        files = list(iter_audio_files(folder, args.limit_per_class))
-        print(f"\nTesting {len(files)} {expected_label} files from: {folder}")
+    for expected_label, audio_path_or_folder in test_sets:
+        files = list(iter_audio_files(audio_path_or_folder, args.limit_per_class))
+        print(f"\nTesting {len(files)} {expected_label} files from: {audio_path_or_folder}")
 
         for index, file_path in enumerate(files, start=1):
             print(f"[{expected_label}] {index}/{len(files)}: {file_path.name}")
@@ -164,7 +155,7 @@ def main() -> None:
                     "fake_chunk_ratio": None,
                     "duration_seconds": None,
                     "model_id": None,
-                    "raw_json": str(exc),
+                    "raw_json": repr(exc),
                 }
 
             rows.append(row)
@@ -187,6 +178,7 @@ def main() -> None:
         "raw_json",
     ]
 
+    args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
